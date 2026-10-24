@@ -1,0 +1,11 @@
+target_time,type,situation,weather,holiday_or_event,volume_2h_before,p_high,predicted,actual,actual_volume,alert
+2018-09-12 08:00,success,Rainy weekday peak: High alert raised and correct,Rain,False,5908,0.99,High,High,6297,True
+2017-11-21 08:00,success,Snow: High still caught,Snow,False,5793,0.578,High,High,5932,True
+2018-08-23 08:00,success,Event day (State Fair) with heavy traffic: High alert correct,Clear,True,5860,0.929,High,High,6162,True
+2017-12-25 08:00,success,"Christmas holiday: correctly Low, no alert",Snow,True,798,0.001,Low,Low,1260,False
+2017-10-27 08:00,success,Snowy but moderate morning: correctly Moderate,Snow,False,5356,0.101,Moderate,Moderate,5159,False
+2018-02-05 08:00,failure,"Missed High: quiet 6 AM, then a sudden surge",Clear,False,4846,0.01,Low,High,6048,False
+2018-07-31 08:00,failure,"Missed High in fog, called Low",Fog/Mist,False,4240,0.016,Low,High,5960,False
+2018-04-19 09:00,failure,"Missed High at 9 AM: barely over the cut-off (5,842)",Clear,False,6461,0.005,Moderate,High,5842,False
+2018-08-28 08:00,failure,"False alarm: 98% High, actual 5,692, just under the cut-off",Rain,False,5611,0.979,High,Moderate,5692,True
+2017-11-09 08:00,failure,"False alarm in snow: predicted High, actual Moderate",Snow,False,5970,0.839,High,Moderate,5542,True

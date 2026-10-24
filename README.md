@@ -12,6 +12,25 @@ A Streamlit version (`app.py`) is kept for local use.
 > stand-in for the campus road. **No live traffic feed is integrated.** The dashboard replays held-out
 > historical days or runs what-if scenarios.
 
+## Submission package (hackathon checklist)
+
+| Checklist item | Where to find it |
+|---|---|
+| Report file | [`docs/GateFlow_Report.pdf`](docs/GateFlow_Report.pdf) · [`.docx`](docs/GateFlow_Report.docx) · [`REPORT.md`](docs/REPORT.md) |
+| PPT | [`docs/GateFlow_Presentation.pptx`](docs/GateFlow_Presentation.pptx) (15 slides with speaker notes, following the suggested flow) · [`PDF`](docs/GateFlow_Presentation.pdf) |
+| Demo | The web dashboard in `public/` (deployed on Vercel) · 2-minute demo script in [`docs/EXPLAINER.md`](docs/EXPLAINER.md#13-two-minute-demo-script) |
+| Problem definition and intended users | Report §2 · website tab *About & Responsible AI* |
+| Architecture / workflow diagram | [`docs/architecture.png`](docs/architecture.png) (data input → processing/model → output) |
+| Dataset source, labels, preprocessing, train/validation/test split | Report §4 · [Dataset](#dataset) and [Approach](#approach) below |
+| Working prototype, clearly labelled proof of concept | `public/` web app (6 tabs) · "no live feed" banner on every page |
+| Evaluation with metrics and test cases, failures included | Report §6 · [`reports/test_cases.md`](reports/test_cases.md) · [`reports/evaluation.md`](reports/evaluation.md) · website *Model performance* tab |
+| Responsible AI: privacy, bias, security, accessibility, limitations, human oversight | Report §8 · website *About & Responsible AI* tab |
+| SDG alignment | Report §9 (SDG 11.2, 3.6/3.9, 13, 9.1, 4) · website and slide 13 |
+| Implemented vs planned | Report §11 · slide 14 · website *About* tab |
+| Plain-language explainer for presenting | [`docs/EXPLAINER.md`](docs/EXPLAINER.md) |
+
+![Architecture](docs/architecture.png)
+
 ## Dataset
 
 **Metro Interstate Traffic Volume**: UCI Machine Learning Repository, id 492 (the same file is mirrored on Kaggle). License: CC BY 4.0.
@@ -85,6 +104,7 @@ Full write-up with charts: [`reports/evaluation.md`](reports/evaluation.md).
 ```bash
 pip install -r requirements.txt
 python train.py              # cleans data, trains, evaluates, writes models/ and reports/
+python make_test_cases.py     # representative test cases + error analysis (reports/, public/)
 python export_web.py         # exports model + held-out days to public/ (checks parity with sklearn)
 node tests/parity.test.mjs   # browser model == sklearn, browser features == Python features
 python -m http.server 8600 -d public   # web dashboard at http://localhost:8600
@@ -107,7 +127,7 @@ The raw data is included in `data/raw/`. To re-download it: https://archive.ics.
 
 ## Dashboard
 
-The web dashboard (`public/`) and the Streamlit app (`app.py`) offer the same modes. The web version adds a model-performance page.
+The web dashboard (`public/`) has six tabs. Replay, What-if, Manual entry and Upload CSV are also in the Streamlit app (`app.py`). The web version adds *Model performance* (metrics, confusion matrix and clickable test cases) and *About & Responsible AI*. Each tab has a deep link, for example `/#about`.
 
 - **Replay a held-out test day:** pick any test weekday and arrival hour. You see the forecast, the alert, and what actually happened.
   Try **Wed 12 Sep 2018, 08:00**: it is rainy, the model gives P(High) = 99%, and the actual volume was 6,297 veh/h (High).
@@ -135,7 +155,9 @@ tests/            parity test: browser model and features vs scikit-learn / Pyth
 app.py            Streamlit dashboard (local alternative)
 data/raw/         Metro_Interstate_Traffic_Volume.csv.gz (UCI / Kaggle)
 models/           congestion_model.joblib
-reports/          evaluation.md, metrics.json, test_predictions.csv, *.png
+reports/          evaluation.md, test_cases.md, metrics.json, test_predictions.csv, *.png
+docs/             report (md/docx/pdf), presentation (pptx/pdf), explainer, architecture diagram, screenshots
+make_test_cases.py  picks representative successes and failures, writes the error analysis
 vercel.json       static deployment config (serves public/)
 ```
 

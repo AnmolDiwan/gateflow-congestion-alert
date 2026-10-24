@@ -14,7 +14,7 @@ const pct = (p) => `${Math.round(p * 100)}%`;
 const fmtInt = (v) => (v === null || v === undefined ? "–" : Math.round(v).toLocaleString("en-US"));
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-let M, TEST;
+let M, TEST, CASES = [];
 const state = { mode: "replay", replayDay: null, replayHour: 8, uploadRows: null, uploadSel: 0, uploadNote: null };
 
 // ---------- tooltip ----------
@@ -228,14 +228,17 @@ function renderTimeline(rows, selTime, onPick) {
 }
 
 // ---------- modes ----------
+const MODES = ["replay", "whatif", "manual", "upload", "perf", "about"];
 function setMode(mode) {
   state.mode = mode;
+  history.replaceState(null, "", `#${mode}`); // deep link to each tab
   document.querySelectorAll(".modes button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === mode)));
-  $("#view-forecast").hidden = mode === "perf";
+  $("#view-forecast").hidden = mode === "perf" || mode === "about";
   $("#view-perf").hidden = mode !== "perf";
+  $("#view-about").hidden = mode !== "about";
   $("#table-card").hidden = mode !== "upload";
   $("#timeline-card").hidden = !(mode === "replay" || mode === "upload");
-  ({ replay: buildReplay, whatif: buildWhatIf, manual: buildManual, upload: buildUpload, perf: buildPerf })[mode]();
+  ({ replay: buildReplay, whatif: buildWhatIf, manual: buildManual, upload: buildUpload, perf: buildPerf, about: buildAbout })[mode]();
 }
 
 function seg(name, options, value) {
@@ -527,6 +530,14 @@ function buildPerf() {
         </tbody></table></div>
       </div>
       <div class="card wide">
+        <h2>Representative test cases: successes and failures</h2>
+        <p class="sub">Ten forecasts from the held-out year that cover every situation: normal peaks, rain, snow, holidays, and each kind of mistake. Click a row to replay it.</p>
+        <div class="tbl-wrap" style="max-height:none"><table class="data"><thead><tr><th>Arrival hour</th><th>Result</th><th>Situation</th><th>Weather</th><th>P(High)</th><th>Predicted</th><th>Actual</th></tr></thead><tbody>
+        ${CASES.map((c, i) => `<tr data-case="${i}"><td>${esc(c.target_time)}</td><td>${c.type === "success" ? '<b style="color:var(--good-ink)">✓ Success</b>' : '<b style="color:var(--critical-ink)">✗ Failure</b>'}</td><td style="font-variant-numeric:normal">${esc(c.situation)}</td><td>${esc(c.weather)}${c.holiday_or_event ? " + event" : ""}</td><td>${pct(c.p_high)}</td><td>${esc(c.predicted)}</td><td>${esc(c.actual)} (${fmtInt(c.actual_volume)})</td></tr>`).join("")}
+        </tbody></table></div>
+        <p class="hint">Error analysis: most false alarms (79%) were hours that ended within 300 veh/h below the High cut-off, and every missed High hour was within 300 veh/h above it. Mistakes are almost always between neighbouring levels, so treat P(High) between 40% and 60% as borderline.</p>
+      </div>
+      <div class="card wide">
         <h2>How it works</h2>
         <ul class="notes">
           <li><b>Data:</b> real hourly vehicle counts, weather and holidays for westbound I-94, 2012–2018 (UCI / Kaggle, CC BY 4.0), used as a stand-in for the campus road.</li>
@@ -537,15 +548,78 @@ function buildPerf() {
         </ul>
       </div>
     </div>`;
+  $("#view-perf").querySelectorAll("tr[data-case]").forEach((tr) => tr.addEventListener("click", () => {
+    const c = CASES[+tr.dataset.case];
+    const t = parseTime(c.target_time);
+    state.replayDay = dayStart(t); state.replayHour = hourOf(t);
+    setMode("replay"); window.scrollTo({ top: 0, behavior: "smooth" });
+  }));
+}
+
+// About & Responsible AI ------------------------------------------
+function buildAbout() {
+  const row = (cells) => `<tr style="cursor:default">${cells.map((c) => `<td style="font-variant-numeric:normal;vertical-align:top">${c}</td>`).join("")}</tr>`;
+  $("#view-about").innerHTML = `
+    <div class="perf">
+      <div class="card wide">
+        <h2>Problem and intended users</h2>
+        <p class="sub">Most students reach campus between 08:00 and 10:00. On some mornings the approach road to the gate jams, students are late and crowded gates are unsafe. GateFlow forecasts the congestion level one hour ahead, so people can act before the jam rather than in it.</p>
+        <div class="tbl-wrap" style="max-height:none"><table class="data"><thead><tr><th>Who</th><th>What they need</th><th>How GateFlow helps</th></tr></thead><tbody>
+          ${row(["<b>Transport / admin office</b>", "Decide on extra shuttles, open a second gate, post marshals", "Alert at 07:00 for 08:00–09:00, with suggested actions"])}
+          ${row(["<b>Gate security staff</b>", "Know when crowds will peak", "Simple Low / Moderate / High level with the reason"])}
+          ${row(["<b>Students and staff</b>", "Leave on time, avoid the jam", "\"Leave 20 minutes earlier\" message (to be shared by the office)"])}
+          ${row(["<b>Shuttle operators</b>", "Plan trips around busy hours", "Forecasts for every weekday peak, CSV download"])}
+        </tbody></table></div>
+      </div>
+      <div class="card wide">
+        <h2>Architecture and workflow</h2>
+        <p class="sub">Data input → preprocessing → features → model → output. The bottom row shows the offline training, evaluation and deployment.</p>
+        <img src="architecture.png" alt="Architecture: hourly records are cleaned, turned into features known one hour ahead, scored by a gradient-boosting model, and shown as a level, an alert and a factor chart. Training uses a chronological split with a held-out test year; the model is exported to JSON and runs in the browser." style="width:100%;border-radius:10px;border:1px solid var(--border);background:#fff">
+      </div>
+      <div class="card">
+        <h2>Responsible AI</h2>
+        <ul class="notes">
+          <li><b>Privacy:</b> only counts of vehicles per hour. No cameras, number plates or personal data. Uploaded CSV files are read inside your browser and never sent anywhere. No accounts, no tracking.</li>
+          <li><b>Bias and fairness:</b> trained on one US highway, so patterns may differ on our road. Accuracy is lower in fog and rain (67–68%) than in snow (91%). College events are not in the data. Rare classes are weighted so High is not ignored.</li>
+          <li><b>Security:</b> a static site with no server, database or secrets to steal. All user text is escaped before display, and uploaded files are parsed as plain data.</li>
+          <li><b>Accessibility:</b> each level is shown with a word and an icon, never colour alone. Colour-blind-safe status colours, keyboard-usable controls, screen-reader labels, dark mode, reduced-motion support, works on phones.</li>
+          <li><b>Human oversight:</b> GateFlow only advises. A person in the transport office decides what to do. P(High) between 40% and 60% is shown as a probability so borderline cases get a human look. Nothing is automated, such as closing a gate.</li>
+          <li><b>Transparency:</b> every forecast shows why, the code is public, and all results are measured on a year the model never saw, including its failures.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>UN Sustainable Development Goals</h2>
+        <ul class="notes">
+          <li><b>SDG 11: Sustainable cities and communities</b> (target 11.2: safe, accessible transport). It eases peak congestion at a shared transport point and suggests alternatives such as shuttles and a second gate.</li>
+          <li><b>SDG 3: Good health and well-being</b> (3.6: road traffic injuries; 3.9: air pollution). Fewer crowded, rushed gate queues is safer, and less stop-start traffic means less exhaust.</li>
+          <li><b>SDG 13: Climate action.</b> Smoother traffic and more shuttle use cut idling emissions.</li>
+          <li><b>SDG 9: Industry, innovation and infrastructure</b> (9.1). It gets more out of existing roads using data, without building new ones.</li>
+          <li><b>SDG 4: Quality education.</b> Students reach class on time.</li>
+        </ul>
+      </div>
+      <div class="card wide">
+        <h2>Implemented vs. planned</h2>
+        <div class="tbl-wrap" style="max-height:none"><table class="data"><thead><tr><th>Implemented now (working)</th><th>Planned next</th></tr></thead><tbody>
+          ${row(["Model trained on real hourly traffic data (I-94, 2012–2018), beats all baselines on a held-out year", "Collect hourly counts at our own gate and retrain (same code)"])}
+          ${row(["Low / Moderate / High forecast 1 h ahead, alert at P(High) ≥ 50%, factor explanations", "Speed or queue-length labels from a camera or GPS, instead of a volume proxy"])}
+          ${row(["Web dashboard: replay, what-if, manual entry, CSV upload, performance, this page", "Live data feed (traffic counter API) and a weather-forecast API"])}
+          ${row(["Model runs in the browser; deployed as a static site from GitHub to Vercel", "Push notifications or SMS to students, run by the transport office"])}
+          ${row(["Evaluation: metrics, confusion matrix, test cases with failures, parity tests", "15-minute resolution; college calendar (exams, fests) as an event input"])}
+        </tbody></table></div>
+        <p class="hint">This is a clearly labelled <b>proof of concept</b>. It is not connected to live traffic.</p>
+      </div>
+    </div>`;
 }
 
 // ---------- boot ----------
 async function boot() {
-  [M, TEST] = await Promise.all([fetch("model.json").then((r) => r.json()), fetch("test_days.json").then((r) => r.json())]);
+  [M, TEST, CASES] = await Promise.all([fetch("model.json").then((r) => r.json()), fetch("test_days.json").then((r) => r.json()),
+    fetch("test_cases.json").then((r) => (r.ok ? r.json() : [])).catch(() => [])]);
   TEST = TEST.map((r) => ({ ...r, time: parseTime(r.time.replace("T", " ")) }));
   $("#model-pill").innerHTML = `<span class="dot" style="background:var(--accent)"></span>${esc(M.model_name)} · ${M.lead_h} h ahead`;
   document.querySelectorAll(".modes button").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
-  setMode("replay");
+  const fromHash = location.hash.slice(1);
+  setMode(MODES.includes(fromHash) ? fromHash : "replay");
 }
 boot().catch((e) => {
   document.querySelector("main").innerHTML = `<div class="card"><h2>Could not load the model</h2><p class="sub">${esc(e.message)}. If you opened index.html directly from disk, serve the folder instead (for example <code>python -m http.server -d public</code>).</p></div>`;
