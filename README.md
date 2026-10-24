@@ -1,0 +1,154 @@
+# 🚦 Smart Traffic Congestion Alert: Campus Gate (8–10 AM)
+
+An AI prototype that forecasts congestion (**Low / Moderate / High**) on the approach road to the campus
+gate, **1 hour ahead**, for weekday arrivals between 08:00 and 10:00. It shows the factors behind each
+prediction and raises an alert when High congestion is expected.
+
+**Web dashboard (`public/`):** a static site, so it deploys straight to Vercel. The trained model is exported to JSON and
+runs **in the browser** (`public/model.js`), giving the same output as scikit-learn (checked by `tests/parity.test.mjs`).
+A Streamlit version (`app.py`) is kept for local use.
+
+> **Honesty note:** the model is trained on a **real public dataset** (hourly I-94 traffic counts) used as a
+> stand-in for the campus road. **No live traffic feed is integrated.** The dashboard replays held-out
+> historical days or runs what-if scenarios.
+
+## Dataset
+
+**Metro Interstate Traffic Volume**: UCI Machine Learning Repository, id 492 (the same file is mirrored on Kaggle). License: CC BY 4.0.
+48,204 hourly rows, Oct 2012 to Sep 2018, westbound I-94 (Minneapolis–St Paul, MN DoT ATR station 301).
+
+| Required field | Column used |
+|---|---|
+| timestamp | `date_time` |
+| vehicle count | `traffic_volume` (vehicles/hour) |
+| weather condition | `weather_main` (grouped: Clear, Clouds, Rain, Snow, Fog/Mist), plus `temp`, `rain_1h`, `snow_1h`, `clouds_all` |
+| event indicator | `holiday` (US holidays and the State Fair), spread from the midnight row to the whole day |
+
+Cleaning (`features.load`):
+- Removed 7,629 duplicate hours (one row per weather condition), keeping the worst weather for each hour.
+- Reindexed to a regular hourly grid, which exposes the Aug 2014 – Jun 2015 sensor gap as NaN.
+- Removed 0 K temperature errors and clipped a 9,831 mm rain outlier.
+
+## Approach
+
+**Congestion classes:** the dataset has no speed data, so the label is a volume-to-capacity proxy:
+
+| Class | Hourly volume | Meaning |
+|---|---|---|
+| Low | < 5,000 veh/h | free flow |
+| Moderate | 5,000 – 5,800 | dense, still moving |
+| High | ≥ 5,800 | ≥ ~85% of max observed throughput (~6,900 veh/h), near saturation |
+
+**Prediction setup (no leakage):** at 07:00 the model predicts the 08:00–09:00 hour, and at 08:00 it predicts 09:00–10:00.
+It uses only information available at prediction time:
+
+| Factor group | Features |
+|---|---|
+| Recent volume & trend | last completed hour, the hour before, and the change between them |
+| Usual volume | same hour yesterday, same hour last week |
+| Weather | current condition, temperature, rain, snow, cloud cover |
+| Holiday / event | holiday or event day flag (known in advance) |
+| Calendar | target hour, day of week, month |
+
+**Models (lightweight; the full pipeline trains in about 10 s on a laptop CPU):**
+- Logistic regression (median imputation + scaling)
+- **HistGradientBoosting** (shallow trees, depth 3, handles missing lags natively) ← selected
+
+**Baselines:** majority class, historical average for the same hour and weekday, and same hour last week (persistence).
+
+**Evaluation protocol:**
+- Chronological split by day: train on Oct 2012 – Oct 2017 (986 weekdays), test on the **held-out last 20%** (247 weekdays, 18 Oct 2017 – 28 Sep 2018).
+- The model is chosen by 4-fold expanding-window CV on **training days only**, so the test set is used once.
+
+**Explainability:**
+- Global: group permutation importance (shuffle one factor group, measure the macro-F1 drop).
+- Per prediction: the change in P(High) when one factor is reset to a "calm" reference (median volumes, Clear weather, no holiday).
+
+## Results (held-out test set, 494 forecasts)
+
+| Model | Accuracy | Macro-F1 | High precision | High recall | False alerts / week | Missed High / week |
+|---|---|---|---|---|---|---|
+| Majority class | 0.512 | 0.226 | 0.000 | 0.000 | 0.00 | 1.98 |
+| Historical average (hour × weekday) | 0.547 | 0.397 | 0.000 | 0.000 | 0.00 | 1.98 |
+| Same hour last week | 0.619 | 0.607 | 0.612 | 0.612 | 0.77 | 0.77 |
+| Logistic regression | 0.654 | 0.660 | 0.515 | 0.898 | 1.42 | 0.28 |
+| **HistGradientBoosting** | **0.735** | **0.733** | 0.609 | 0.796 | 0.95 | 0.40 |
+
+- The model raises macro-F1 from 0.607 (best baseline) to **0.733** and catches **80% of High-congestion hours**. That works out to about 0.4 missed High hours and 1 false alert per week (10 forecasts a week).
+- Predicting **2 hours ahead** still reaches macro-F1 0.688 (High recall 0.92).
+- Top factors: recent volume & trend (0.19 drop in macro-F1), then usual volume yesterday / last week (0.14). Weather and holiday add little *on average*, because snow days and holidays are rare in the test year. Their effect shows up per prediction in the dashboard.
+
+Full write-up with charts: [`reports/evaluation.md`](reports/evaluation.md).
+
+## Run it
+
+```bash
+pip install -r requirements.txt
+python train.py              # cleans data, trains, evaluates, writes models/ and reports/
+python export_web.py         # exports model + held-out days to public/ (checks parity with sklearn)
+node tests/parity.test.mjs   # browser model == sklearn, browser features == Python features
+python -m http.server 8600 -d public   # web dashboard at http://localhost:8600
+streamlit run app.py         # optional: Streamlit version at http://localhost:8501
+```
+
+## Deploy to Vercel
+
+The web dashboard is plain static files in `public/`, with no build step and no server. `vercel.json` tells Vercel to serve
+that folder as-is, and `.vercelignore` keeps the Python pipeline out of the deployment.
+
+1. Go to vercel.com → **Add New… → Project** and import this GitHub repo.
+2. Leave the defaults. The framework preset is "Other", and `vercel.json` already sets the output directory to `public`.
+3. Click **Deploy**. Every later push to `main` redeploys automatically.
+
+If you retrain, run `python export_web.py` again and commit the updated `public/model.json` and `public/test_days.json`.
+
+`python train.py --lead 2` retrains for 2-hour-ahead alerts.
+The raw data is included in `data/raw/`. To re-download it: https://archive.ics.uci.edu/static/public/492/metro+interstate+traffic+volume.zip
+
+## Dashboard
+
+The web dashboard (`public/`) and the Streamlit app (`app.py`) offer the same modes. The web version adds a model-performance page.
+
+- **Replay a held-out test day:** pick any test weekday and arrival hour. You see the forecast, the alert, and what actually happened.
+  Try **Wed 12 Sep 2018, 08:00**: it is rainy, the model gives P(High) = 99%, and the actual volume was 6,297 veh/h (High).
+- **What-if scenario:** set recent counts, weather, month and holiday flag with sliders to see how the forecast reacts.
+- **Manual data entry:** feed in your own readings. They go through the same cleaning and feature code as the training data:
+  - **Type readings:** pick a date and arrival hour, then type the hourly vehicle counts and weather into an editable table.
+    Same-hour-yesterday and last-week counts are optional. The forecast updates as you edit.
+  - **Upload CSV:** a file in the dataset's format. `date_time` and `traffic_volume` are required. `weather_main`, `temp` (Kelvin),
+    `rain_1h`, `snow_1h`, `clouds_all` and `holiday` are optional and get defaults if missing.
+    Every weekday 08:00 / 09:00 hour gets a forecast, including the next one after your last reading.
+    The forecast table can be downloaded, and a **template CSV** with real readings is provided.
+- **Alert banner:** when P(High) ≥ 50% it suggests actions (leave earlier, open Gate 3, marshal, extra shuttle).
+- **Road view:** a schematic map mock-up, coloured by the latest volume and the forecast level.
+- **Factor chart:** what pushed this particular prediction up or down.
+- **Model evaluation tab:** the metrics, confusion matrices, factor importance and lead-time table.
+
+## Project structure
+
+```
+features.py       data cleaning, feature engineering, factor attribution (shared)
+train.py          baselines + models, time-series CV selection, held-out evaluation, report
+export_web.py     exports the trained trees + held-out days to JSON for the browser
+public/           static web dashboard (index.html, app.js, model.js, styles.css, model.json, ...)
+tests/            parity test: browser model and features vs scikit-learn / Python
+app.py            Streamlit dashboard (local alternative)
+data/raw/         Metro_Interstate_Traffic_Volume.csv.gz (UCI / Kaggle)
+models/           congestion_model.joblib
+reports/          evaluation.md, metrics.json, test_predictions.csv, *.png
+vercel.json       static deployment config (serves public/)
+```
+
+## Limitations and next steps
+
+- **Proxy labels:** congestion is inferred from volume. On the real campus road, label with speed or queue length (camera, GPS probes, Google/HERE traffic) and retrain.
+- **Stand-in road:** the pipeline is road-agnostic. Swap in campus counts with the same four fields and rerun `train.py`.
+- **Hourly data:** the 5- or 15-minute resolution of a campus counter would allow finer, earlier alerts.
+- **Weather and events:** add a weather-forecast API and the college calendar (exams, fests) as event inputs.
+- **Congestion propagation:** following Nagy & Simon (2021), *Improving traffic prediction using congestion
+  propagation patterns in smart cities*, Advanced Engineering Informatics 50, 101343, adding upstream or neighbouring segment
+  counts is the most promising extra feature once multiple sensors exist.
+
+## Citation
+
+Hogue, J. (2019). Metro Interstate Traffic Volume [Dataset]. UCI Machine Learning Repository. https://doi.org/10.24432/C5X60B

@@ -1,0 +1,8 @@
+# Only the static site in public/ is deployed; keep the Python pipeline out of the deployment
+*.py
+requirements.txt
+data/
+models/
+reports/
+tests/
+.claude/

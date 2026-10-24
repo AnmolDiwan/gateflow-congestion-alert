@@ -1,0 +1,86 @@
+{
+  "lead_hours": 1,
+  "selected_model": "Gradient boosting (HistGB)",
+  "cv_macro_f1": {
+    "Logistic regression": 0.6718716618358609,
+    "Gradient boosting (HistGB)": 0.7053217930072941
+  },
+  "test": {
+    "Majority class": {
+      "accuracy": 0.5121,
+      "macro_f1": 0.2258,
+      "weighted_f1": 0.3469,
+      "high_precision": 0.0,
+      "high_recall": 0.0,
+      "high_f1": 0.0,
+      "false_alerts_per_week": 0.0,
+      "missed_high_per_week": 1.9838
+    },
+    "Historical average (hour x weekday)": {
+      "accuracy": 0.5466,
+      "macro_f1": 0.3974,
+      "weighted_f1": 0.4846,
+      "high_precision": 0.0,
+      "high_recall": 0.0,
+      "high_f1": 0.0,
+      "false_alerts_per_week": 0.0,
+      "missed_high_per_week": 1.9838
+    },
+    "Same hour last week": {
+      "accuracy": 0.6194,
+      "macro_f1": 0.6066,
+      "weighted_f1": 0.6192,
+      "high_precision": 0.6122,
+      "high_recall": 0.6122,
+      "high_f1": 0.6122,
+      "false_alerts_per_week": 0.7692,
+      "missed_high_per_week": 0.7692
+    },
+    "Logistic regression": {
+      "accuracy": 0.6538,
+      "macro_f1": 0.6602,
+      "weighted_f1": 0.6487,
+      "high_precision": 0.5146,
+      "high_recall": 0.898,
+      "high_f1": 0.6543,
+      "false_alerts_per_week": 1.417,
+      "missed_high_per_week": 0.2834
+    },
+    "Gradient boosting (HistGB)": {
+      "accuracy": 0.7348,
+      "macro_f1": 0.7325,
+      "weighted_f1": 0.7357,
+      "high_precision": 0.6094,
+      "high_recall": 0.7959,
+      "high_f1": 0.6903,
+      "false_alerts_per_week": 0.9514,
+      "missed_high_per_week": 0.4049
+    }
+  },
+  "factor_importance": {
+    "Recent volume & trend": 0.19098873916290696,
+    "Usual volume (yesterday / last week)": 0.13548633779796196,
+    "Season (month)": 0.011790336638781374,
+    "Time of day": 0.006236408669927596,
+    "Holiday / event": 2.0036046171068023e-06,
+    "Weather": -0.0005371223343193399,
+    "Day of week": -0.0015821198706719608
+  },
+  "lead_time_sensitivity": {
+    "1": {
+      "baseline": 0.3974,
+      "model": 0.7325,
+      "model_high_recall": 0.7959
+    },
+    "2": {
+      "baseline": 0.3961,
+      "model": 0.6883,
+      "model_high_recall": 0.9231
+    }
+  },
+  "level_bins_veh_per_h": [
+    5000,
+    5800
+  ],
+  "alert_threshold": 0.5
+}
