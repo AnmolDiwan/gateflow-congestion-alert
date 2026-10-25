@@ -31,6 +31,16 @@ A Streamlit version (`app.py`) is kept for local use.
 
 ![Architecture](docs/architecture.png)
 
+## Demo CSV files (for the Upload CSV tab)
+
+Three ready-made files in [`public/demo/`](public/demo/). They are cut from the **held-out test year**, so the model never saw them. On the website they load with one click under *Upload CSV → Demo files*. Regenerate them with `python make_demo_csvs.py`.
+
+| File | Period | What it shows | Result |
+|---|---|---|---|
+| [`1_busy_week_alerts.csv`](public/demo/1_busy_week_alerts.csv) | 13–24 Aug 2018 | Busy late-summer weeks; State Fair day (23 Aug) | 20 forecasts, 7 High alerts, all 6 real High hours caught, 1 false alarm |
+| [`2_holiday_weeks.csv`](public/demo/2_holiday_weeks.csv) | 18 Dec 2017 – 5 Jan 2018 | Christmas and New Year: quiet mornings | 30 forecasts, 0 alerts, 27/30 correct, every holiday correctly Low |
+| [`3_winter_live_forecast.csv`](public/demo/3_winter_live_forecast.csv) | 29 Jan – 9 Feb 2018 (ends Fri 07:00) | Snow, a missed sudden surge (5 Feb), and live-style use | 20 forecasts, 14/18 correct, 1 miss, 1 false alarm; the last 2 forecasts show "not known yet", as they would in real use |
+
 ## Dataset
 
 **Metro Interstate Traffic Volume**: UCI Machine Learning Repository, id 492 (the same file is mirrored on Kaggle). License: CC BY 4.0.
@@ -105,6 +115,7 @@ Full write-up with charts: [`reports/evaluation.md`](reports/evaluation.md).
 pip install -r requirements.txt
 python train.py              # cleans data, trains, evaluates, writes models/ and reports/
 python make_test_cases.py     # representative test cases + error analysis (reports/, public/)
+python make_demo_csvs.py      # three demo CSVs for the Upload tab (public/demo/)
 python export_web.py         # exports model + held-out days to public/ (checks parity with sklearn)
 node tests/parity.test.mjs   # browser model == sklearn, browser features == Python features
 python -m http.server 8600 -d public   # web dashboard at http://localhost:8600

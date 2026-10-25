@@ -251,6 +251,11 @@ function bindSeg(root, name, cb) {
   }));
 }
 const HOUR_OPTS = [[8, "08:00–09:00"], [9, "09:00–10:00"]];
+const DEMO_FILES = [
+  { file: "1_busy_week_alerts.csv", label: "Busy weeks: alerts", about: "Busy late-summer weeks (13–24 Aug 2018): High alerts, including the State Fair day." },
+  { file: "2_holiday_weeks.csv", label: "Holiday weeks: no alarms", about: "Christmas and New Year (18 Dec 2017 – 5 Jan 2018): quiet mornings, no false alarms." },
+  { file: "3_winter_live_forecast.csv", label: "Winter + live forecast", about: "Snowy winter (29 Jan – 9 Feb 2018) with a missed surge on 5 Feb; ends Friday 07:00, so the last forecasts are 'not known yet', as in live use." },
+];
 
 // Replay ---------------------------------------------------------
 function buildReplay() {
@@ -412,6 +417,9 @@ function buildUpload() {
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>
       <div><b>Drop a CSV here</b> or click to choose</div></label>
     <div style="display:flex;gap:8px;margin-top:10px"><a class="btn" href="traffic_template.csv" download>Download template</a><button class="btn" id="u-sample">Use template data</button></div>
+    <div class="field" style="margin-top:14px"><span class="field-label">Demo files (real held-out days)</span>
+      <div class="chips">${DEMO_FILES.map((d, i) => `<button class="chip" data-demo="${i}" title="${esc(d.about)}">${esc(d.label)}</button>`).join("")}</div>
+      <p class="hint">Each file is also downloadable from <code>public/demo/</code> in the repo.</p></div>
     <div id="u-msg"></div>
     <div class="divider"></div>
     <p class="hint"><b>Required columns:</b> date_time (YYYY-MM-DD HH:MM), traffic_volume.<br><b>Optional:</b> weather_main, temp (Kelvin), rain_1h, snow_1h, clouds_all, holiday.
@@ -422,6 +430,11 @@ function buildUpload() {
   drop.addEventListener("dragleave", () => drop.classList.remove("over"));
   drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
   $("#u-sample").addEventListener("click", loadTemplate);
+  document.querySelectorAll("[data-demo]").forEach((btn) => btn.addEventListener("click", async () => {
+    const d = DEMO_FILES[+btn.dataset.demo];
+    const text = await (await fetch(`demo/${d.file}`)).text();
+    ingest(text, `Demo: ${d.about}`);
+  }));
   if (state.uploadRows) showUpload(); else loadTemplate();
 }
 async function loadTemplate() {
