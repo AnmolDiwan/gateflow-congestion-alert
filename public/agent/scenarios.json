@@ -1,0 +1,76 @@
+{
+  "_note": "SIMULATED example feeds for demonstrating the agent loop. The base forecasts are real ML forecasts on held-out days; the incident, roadworks and news items are invented examples in the format a government traffic API or news feed would return.",
+  "scenarios": [
+    {
+      "id": "calm",
+      "label": "Calm morning",
+      "about": "Nothing on the route. One crash far away, roadworks only at night.",
+      "base_time": "2018-01-29T08:00",
+      "feeds": {
+        "govt_traffic": [
+          {"id": "MN-INC-4411", "publisher": "State DOT incident feed", "type": "accident", "title": "Minor two-car collision on the ring road, eastbound", "road": "Ring road EB", "on_route": false, "distance_km": 9.2, "start": "07:10", "end": "07:50", "lanes_closed": 1, "lanes_total": 3, "full_closure": false, "credibility": "official"}
+        ],
+        "govt_roadworks": [
+          {"id": "RW-2018-0193", "publisher": "City public works permits", "type": "roadworks", "title": "Night resurfacing on the campus approach road", "road": "Campus approach road", "on_route": true, "distance_km": 0.4, "start": "22:00", "end": "05:00", "lanes_closed": 1, "lanes_total": 2, "full_closure": false, "credibility": "official"}
+        ],
+        "news": []
+      }
+    },
+    {
+      "id": "accident",
+      "label": "Accident blocks the road",
+      "about": "Official feed: crash closes all lanes near the gate. A TV station confirms.",
+      "base_time": "2018-01-29T08:00",
+      "feeds": {
+        "govt_traffic": [
+          {"id": "MN-INC-4502", "publisher": "State DOT incident feed", "type": "accident", "title": "Two-vehicle crash, all lanes blocked, emergency services on scene", "road": "Campus approach road", "on_route": true, "distance_km": 0.6, "start": "07:35", "end": "08:45", "lanes_closed": 2, "lanes_total": 2, "full_closure": true, "credibility": "official"}
+        ],
+        "govt_roadworks": [],
+        "news": [
+          {"id": "NEWS-7781", "publisher": "City TV News", "type": "accident", "title": "Crash closes road near university gate during morning rush", "road": "Campus approach road", "on_route": true, "distance_km": 0.6, "start": "07:40", "end": null, "full_closure": true, "credibility": "news"}
+        ]
+      }
+    },
+    {
+      "id": "roadworks",
+      "label": "Roadworks close one lane",
+      "about": "Public-works permit: one of two lanes closed all morning.",
+      "base_time": "2018-01-31T08:00",
+      "feeds": {
+        "govt_traffic": [],
+        "govt_roadworks": [
+          {"id": "RW-2018-0207", "publisher": "City public works permits", "type": "roadworks", "title": "Water-main repair: one lane closed, flagger traffic control", "road": "Campus approach road", "on_route": true, "distance_km": 0.3, "start": "07:00", "end": "13:00", "lanes_closed": 1, "lanes_total": 2, "full_closure": false, "credibility": "official"}
+        ],
+        "news": []
+      }
+    },
+    {
+      "id": "rumour",
+      "label": "Unverified rumour",
+      "about": "A social post claims the road is blocked. Nothing official confirms it.",
+      "base_time": "2018-02-01T08:00",
+      "feeds": {
+        "govt_traffic": [],
+        "govt_roadworks": [],
+        "news": [
+          {"id": "SOC-1209", "publisher": "Social media post (unverified)", "type": "rumour", "title": "\"Road near the campus gate totally blocked??\"", "road": "Campus approach road", "on_route": true, "distance_km": null, "start": "07:15", "end": null, "full_closure": true, "credibility": "unverified"}
+        ]
+      }
+    },
+    {
+      "id": "cleared",
+      "label": "Crash already cleared",
+      "about": "A crash closed the road earlier, but it reopened before the arrival hour.",
+      "base_time": "2018-09-12T09:00",
+      "feeds": {
+        "govt_traffic": [
+          {"id": "MN-INC-4630", "publisher": "State DOT incident feed", "type": "accident", "title": "Stalled truck blocked both lanes (cleared)", "road": "Campus approach road", "on_route": true, "distance_km": 0.8, "start": "06:50", "end": "07:30", "lanes_closed": 2, "lanes_total": 2, "full_closure": true, "credibility": "official"}
+        ],
+        "govt_roadworks": [],
+        "news": [
+          {"id": "NEWS-7802", "publisher": "City Radio Traffic", "type": "accident", "title": "Road near campus reopened after early-morning breakdown", "road": "Campus approach road", "on_route": true, "distance_km": 0.8, "start": "06:50", "end": "07:30", "full_closure": false, "credibility": "news"}
+        ]
+      }
+    }
+  ]
+}

@@ -41,6 +41,41 @@ Three ready-made files in [`public/demo/`](public/demo/). They are cut from the 
 | [`2_holiday_weeks.csv`](public/demo/2_holiday_weeks.csv) | 18 Dec 2017 – 5 Jan 2018 | Christmas and New Year: quiet mornings | 30 forecasts, 0 alerts, 27/30 correct, every holiday correctly Low |
 | [`3_winter_live_forecast.csv`](public/demo/3_winter_live_forecast.csv) | 29 Jan – 9 Feb 2018 (ends Fri 07:00) | Snow, a missed sudden surge (5 Feb), and live-style use | 20 forecasts, 14/18 correct, 1 miss, 1 false alarm; the last 2 forecasts show "not known yet", as they would in real use |
 
+## Agentic AI layer (new tab)
+
+The ML model learns patterns from history, so it **can't react to one-off events** such as a crash, a closed road or roadworks. The *Agentic AI* tab adds an agent **on top of** the model. The model itself is not changed.
+
+**Loop:** observe (read the ML forecast) → plan → act (call tools) → reason → reflect (cross-check sources) → decide, repeated until it can decide.
+
+| Tool | What it returns |
+|---|---|
+| `get_traffic_incidents` | Government traffic incident feed (crashes, breakdowns, closures) |
+| `get_roadworks` | Government roadworks / construction permits |
+| `get_news_reports` | News stations and public reports |
+| `web_search` (Claude engine, live mode) | Real, current news and government pages for the location you type |
+
+**Rules the agent follows:**
+- A confirmed full closure on the route during the arrival window means **High** (about 97%).
+- A lane closure raises P(High) in proportion to the capacity lost.
+- An unverified rumour never triggers an alert on its own: the forecast is kept and a human check is requested.
+- Events that are off the route, or outside the arrival window, are ignored.
+
+**Two engines:**
+- **Built-in (offline):** a deterministic planner that runs in the browser with no key.
+- **Claude agent:** `claude-opus-5-5` drives the same tools through a tool-use loop.
+    - It runs with summarized thinking, and server-side refusal fallback is enabled (`fallbacks: "default"`).
+    - With **Live mode** it uses Claude's web search to look for real reports near the campus. The default location is VIT Vellore.
+    - The API key is typed into the page, kept in memory only, and sent only to `api.anthropic.com`.
+
+**The 5 demo scenarios** in `public/agent/scenarios.json`:
+- Calm morning
+- Accident blocks the road
+- Roadworks close one lane
+- Unverified rumour
+- Crash already cleared
+
+The base forecasts are real ML forecasts on held-out days. The incident and news items are **simulated examples**, in the format a government or news feed returns.
+
 ## Dataset
 
 **Metro Interstate Traffic Volume**: UCI Machine Learning Repository, id 492 (the same file is mirrored on Kaggle). License: CC BY 4.0.

@@ -1,4 +1,5 @@
 import { contributions, dayStart, fmtTime, forecastRows, hourOf, levelOf, parseCSV, parseTime, predictProba } from "./model.js";
+import { runBuiltinAgent, runClaudeAgent } from "./agent.js";
 
 const $ = (sel) => document.querySelector(sel);
 const HOUR = 3600 * 1000;
@@ -228,17 +229,18 @@ function renderTimeline(rows, selTime, onPick) {
 }
 
 // ---------- modes ----------
-const MODES = ["replay", "whatif", "manual", "upload", "perf", "about"];
+const MODES = ["replay", "whatif", "manual", "upload", "agent", "perf", "about"];
 function setMode(mode) {
   state.mode = mode;
   history.replaceState(null, "", `#${mode}`); // deep link to each tab
   document.querySelectorAll(".modes button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.mode === mode)));
-  $("#view-forecast").hidden = mode === "perf" || mode === "about";
+  $("#view-forecast").hidden = ["perf", "about", "agent"].includes(mode);
   $("#view-perf").hidden = mode !== "perf";
   $("#view-about").hidden = mode !== "about";
+  $("#view-agent").hidden = mode !== "agent";
   $("#table-card").hidden = mode !== "upload";
   $("#timeline-card").hidden = !(mode === "replay" || mode === "upload");
-  ({ replay: buildReplay, whatif: buildWhatIf, manual: buildManual, upload: buildUpload, perf: buildPerf, about: buildAbout })[mode]();
+  ({ replay: buildReplay, whatif: buildWhatIf, manual: buildManual, upload: buildUpload, perf: buildPerf, about: buildAbout, agent: buildAgent })[mode]();
 }
 
 function seg(name, options, value) {
@@ -569,6 +571,107 @@ function buildPerf() {
   }));
 }
 
+// Agentic AI ------------------------------------------------------
+let SCENARIOS = null;
+const agentState = { scenario: "accident", engine: "builtin", live: false, location: "VIT Vellore, Katpadi Road (campus approach)", running: false };
+let agentKey = ""; // memory only - never stored
+const STAGES = ["observe", "plan", "act", "reason", "reflect", "decide"];
+const STAGE_LABEL = { observe: "Observe", plan: "Plan", act: "Act (tools)", reason: "Reason", reflect: "Reflect", decide: "Decide" };
+
+async function buildAgent() {
+  if (!SCENARIOS) SCENARIOS = (await (await fetch("agent/scenarios.json")).json()).scenarios;
+  const sc = SCENARIOS.find((x) => x.id === agentState.scenario) || SCENARIOS[0];
+  $("#view-agent").innerHTML = `
+    <div class="layout">
+      <aside class="card panel">
+        <h2>Agentic AI</h2>
+        <p class="hint" style="margin:0 0 14px">The ML model learns patterns from history, but it can't see one-off events such as a crash, a road closure or roadworks. This agent starts from the ML forecast, checks government and news feeds in a loop, and adjusts the alert. <b>The ML model itself is unchanged.</b></p>
+        <div class="field"><span class="field-label">Scenario</span>
+          <div class="scen-list">${SCENARIOS.map((x) => `<button class="scen ${x.id === sc.id ? "on" : ""}" data-scen="${x.id}"><b>${esc(x.label)}</b><span>${esc(x.about)}</span></button>`).join("")}</div></div>
+        <div class="field"><span class="field-label">Agent engine</span>${seg("engine", [["builtin", "Built-in (offline)"], ["claude", "Claude agent"]], agentState.engine)}</div>
+        <div id="claude-opts" ${agentState.engine === "claude" ? "" : "hidden"}>
+          <div class="field"><label for="a-key">Anthropic API key</label><input type="password" id="a-key" placeholder="sk-ant-..." autocomplete="off" value="${esc(agentKey)}">
+            <p class="hint">Kept in this page's memory only and sent only to api.anthropic.com. Model: claude-opus-5-5.</p></div>
+          <label class="check"><input type="checkbox" id="a-live" ${agentState.live ? "checked" : ""}> Live mode: search real news and government sites</label>
+          <div class="field" style="margin-top:10px"><label for="a-loc">Location to monitor</label><input type="text" id="a-loc" value="${esc(agentState.location)}"></div>
+        </div>
+        <button class="btn primary" id="a-run" style="width:100%;margin-top:6px">Run agent</button>
+        <p class="hint">Scenario feeds are <b>simulated examples</b> in the format a government traffic API or a news feed returns. The base forecasts are real ML forecasts on held-out days.</p>
+      </aside>
+      <div class="results">
+        <div class="card"><div class="loop" id="a-loop">${STAGES.map((st, i) => `<span class="lp" data-st="${st}">${STAGE_LABEL[st]}</span>${i < STAGES.length - 1 ? '<span class="lp-arrow">→</span>' : ""}`).join("")}<span class="lp-arrow">↻</span></div>
+          <p class="hint" style="margin:8px 0 0">The agent loops through these steps: it calls tools, checks what it finds, and repeats until it can decide.</p></div>
+        <div class="grid2">
+          <div class="card" id="a-ml"></div>
+          <div class="card" id="a-final"><h2>Agent decision</h2><p class="sub">Press <b>Run agent</b> to start the loop.</p></div>
+        </div>
+        <div class="card"><h2>Agent trace</h2><p class="sub">Every step the agent took, in order.</p><ol class="trace" id="a-trace"><li class="trace-empty">No run yet.</li></ol></div>
+      </div>
+    </div>`;
+  const base = agentBase(sc);
+  renderAgentML(base);
+  const root = $("#view-agent");
+  root.querySelectorAll("[data-scen]").forEach((b) => b.addEventListener("click", () => { agentState.scenario = b.dataset.scen; buildAgent(); }));
+  bindSeg(root, "engine", (v) => { agentState.engine = v; $("#claude-opts").hidden = v !== "claude"; });
+  root.querySelector("#a-key").addEventListener("input", (e) => { agentKey = e.target.value.trim(); });
+  root.querySelector("#a-live").addEventListener("change", (e) => { agentState.live = e.target.checked; });
+  root.querySelector("#a-loc").addEventListener("input", (e) => { agentState.location = e.target.value; });
+  root.querySelector("#a-run").addEventListener("click", () => runAgent(sc, base));
+}
+
+function agentBase(sc) {
+  const t = parseTime(sc.base_time.replace("T", " "));
+  const row = TEST.find((r) => r.time === t);
+  const proba = predictProba(M, row.x);
+  return { row, proba, pHigh: proba[2], level: M.levels[proba.indexOf(Math.max(...proba))], hour: hourOf(t), dateLabel: fmtTime(t) };
+}
+
+function levelBadge(level) { return `<span class="badge"><span class="sw" style="background:${STATUS[level].color}"></span>${level}</span>`; }
+
+function renderAgentML(base) {
+  $("#a-ml").innerHTML = `<h2>ML model (unchanged)</h2><p class="sub">${esc(base.dateLabel)} · ${hh(base.hour)}–${hh(base.hour + 1)} · counts, weather, calendar only</p>
+    <div class="kpi-row"><div><div class="k">Level</div><div class="v">${levelBadge(base.level)}</div></div><div><div class="k">P(High)</div><div class="v">${pct(base.pHigh)}</div></div><div><div class="k">Alert</div><div class="v">${base.pHigh >= M.alert_threshold ? "Yes" : "No"}</div></div></div>`;
+}
+
+async function runAgent(sc, base) {
+  if (agentState.running) return;
+  if (agentState.engine === "claude" && !agentKey) { $("#a-final").innerHTML = '<h2>Agent decision</h2><div class="notice error">Enter an Anthropic API key, or use the built-in agent.</div>'; return; }
+  agentState.running = true;
+  const btn = $("#a-run"); btn.disabled = true; btn.textContent = "Agent running…";
+  const trace = $("#a-trace"); trace.innerHTML = "";
+  $("#a-final").innerHTML = '<h2>Agent decision</h2><p class="sub">Working…</p>';
+  const onStep = (st) => {
+    document.querySelectorAll("#a-loop .lp").forEach((el) => el.classList.toggle("on", el.dataset.st === st.stage));
+    const li = document.createElement("li");
+    li.className = `tr tr-${st.stage}`;
+    li.innerHTML = `<span class="tr-stage">${STAGE_LABEL[st.stage]}</span><div><b>${esc(st.title)}</b>${st.tool ? ` <code>${esc(st.tool)}</code>` : ""}<div class="tr-detail">${esc(st.detail || "")}</div></div>`;
+    trace.appendChild(li);
+  };
+  try {
+    const final = agentState.engine === "claude"
+      ? await runClaudeAgent({ apiKey: agentKey, base, scenario: sc, live: agentState.live, location: agentState.location, onStep })
+      : await runBuiltinAgent({ base, scenario: sc, onStep });
+    renderAgentFinal(base, final);
+  } catch (e) {
+    const msg = e.status === 401 ? "That API key was rejected (401). Check the key, or use the built-in agent."
+      : e.status === 429 ? "Rate limited by the API (429). Wait a moment and run again."
+      : (e.message || String(e));
+    $("#a-final").innerHTML = `<h2>Agent decision</h2><div class="notice error">${esc(msg)}</div><p class="hint">The ML forecast still stands: ${base.level}, P(High) ${pct(base.pHigh)}.</p>`;
+  } finally {
+    agentState.running = false; btn.disabled = false; btn.textContent = "Run agent";
+    document.querySelectorAll("#a-loop .lp").forEach((el) => el.classList.remove("on"));
+  }
+}
+
+function renderAgentFinal(base, f) {
+  const changed = f.final_level !== base.level || Math.abs(f.adjusted_p_high - base.pHigh) > 0.02;
+  const cls = f.alert ? "high" : f.final_level === "Moderate" ? "moderate" : "low";
+  $("#a-final").innerHTML = `<h2>Agent decision</h2><p class="sub">${changed ? "Adjusted the ML forecast" : "Kept the ML forecast"} · confidence: <b>${esc(f.confidence)}</b>${f.needs_human_check ? ' · <b style="color:var(--warning-ink)">needs human check</b>' : ""}</p>
+    <div class="kpi-row"><div><div class="k">Level</div><div class="v">${levelBadge(f.final_level)}</div></div><div><div class="k">P(High)</div><div class="v">${pct(f.adjusted_p_high)}</div></div><div><div class="k">Alert</div><div class="v">${f.alert ? "Yes" : "No"}</div></div></div>
+    <div class="alert ${cls}" style="padding:12px 14px;margin-top:12px;grid-template-columns:1fr"><div><b>${esc(f.summary)}</b><ul>${(f.actions || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div></div>
+    ${f.sources_used?.length ? `<p class="hint">Sources: ${f.sources_used.map(esc).join(" · ")}</p>` : ""}`;
+}
+
 // About & Responsible AI ------------------------------------------
 function buildAbout() {
   const row = (cells) => `<tr style="cursor:default">${cells.map((c) => `<td style="font-variant-numeric:normal;vertical-align:top">${c}</td>`).join("")}</tr>`;
@@ -616,6 +719,7 @@ function buildAbout() {
           ${row(["Model trained on real hourly traffic data (I-94, 2012–2018), beats all baselines on a held-out year", "Collect hourly counts at our own gate and retrain (same code)"])}
           ${row(["Low / Moderate / High forecast 1 h ahead, alert at P(High) ≥ 50%, factor explanations", "Speed or queue-length labels from a camera or GPS, instead of a volume proxy"])}
           ${row(["Web dashboard: replay, what-if, manual entry, CSV upload, performance, this page", "Live data feed (traffic counter API) and a weather-forecast API"])}
+          ${row(["Agentic AI layer: tool loop over incident, roadworks and news feeds; overrides the ML alert for one-off events (built-in engine + Claude engine with live web search)", "Connect real government incident and roadworks APIs (for example a state 511 feed) in place of the simulated example feeds"])}
           ${row(["Model runs in the browser; deployed as a static site from GitHub to Vercel", "Push notifications or SMS to students, run by the transport office"])}
           ${row(["Evaluation: metrics, confusion matrix, test cases with failures, parity tests", "15-minute resolution; college calendar (exams, fests) as an event input"])}
         </tbody></table></div>
