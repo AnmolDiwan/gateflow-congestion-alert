@@ -63,6 +63,8 @@ async function aspect(file) { const m = await sharp(file).metadata(); return m.w
     shield: await icon(fa.FaUserShield, "FFFFFF"), access: await icon(fa.FaUniversalAccess, "FFFFFF"),
     warn: await icon(fa.FaExclamationTriangle, "FFFFFF"), human: await icon(fa.FaUserCheck, "FFFFFF"),
     light: await icon(fa.FaTrafficLight, AMBER, 512),
+    crash: await icon(fa.FaCarCrash, "FFFFFF"), hardhat: await icon(fa.FaHardHat, "FFFFFF"),
+    news: await icon(fa.FaNewspaper, "FFFFFF"), robot: await icon(fa.FaRobot, "FFFFFF"),
   };
   const circleIcon = (s, img, x, y, color, d = 0.62) => {
     s.addShape(pres.shapes.OVAL, { x, y, w: d, h: d, fill: { color }, line: { color }, objectName: "icon-circle" });
@@ -227,6 +229,65 @@ async function aspect(file) { const m = await sharp(file).metadata(); return m.w
   }
   s.addNotes("Besides replay, the office can test scenarios, type in today's counts, or upload a whole CSV. Uploaded files never leave the browser. The Model performance and About tabs show the evaluation and the responsible-AI notes.");
 
+  // ---------- Agentic AI: concept ----------
+  s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "4 Prototype demo" });
+  title(s, "Agentic AI: ML predicts patterns, the agent handles surprises");
+  const loopSteps = [["Observe", "Read the ML forecast"], ["Plan", "Pick which feeds to check"], ["Act", "Call the tools"], ["Reason", "On the route? In the time window?"], ["Reflect", "Do sources agree?"], ["Decide", "Keep or override the alert"]];
+  loopSteps.forEach(([h1, b1], i) => {
+    const x = 0.6 + i * 2.06, y = 1.45;
+    s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x, y, w: 1.82, h: 1.2, rectRadius: 0.1, fill: { color: i === 5 ? BLUE : CARD }, line: { color: i === 5 ? BLUE : LINE }, objectName: "loop-" + i });
+    txt(s, `${i + 1}. ${h1}`, { x: x + 0.15, y: y + 0.15, w: 1.55, h: 0.4, fontSize: 16, bold: true, color: i === 5 ? "FFFFFF" : INK });
+    txt(s, b1, { x: x + 0.15, y: y + 0.58, w: 1.55, h: 0.55, fontSize: 12, color: i === 5 ? "E5E7EB" : SUB });
+    if (i < 5) txt(s, "→", { x: x + 1.84, y: y + 0.38, w: 0.22, h: 0.4, fontSize: 16, color: MUTED, align: "center" });
+  });
+  txt(s, "↻ repeats until it can decide", { x: 9.9, y: 2.72, w: 2.8, h: 0.3, fontSize: 12, italic: true, color: MUTED, align: "right" });
+  const toolsA = [[I.crash, RED, "Govt incident feed", "Crashes, breakdowns and closures from the traffic police / transport department"], [I.hardhat, AMBER, "Govt roadworks permits", "Construction and lane closures from public-works permits"], [I.news, BLUE, "News stations", "Local news reports to cross-check. Live mode adds real web search"]];
+  toolsA.forEach(([img, col, h1, b1], i) => {
+    const x = 0.6 + i * 2.85;
+    card(s, x, 3.15, 2.7, 2.1);
+    circleIcon(s, img, x + 0.25, 3.35, col, 0.55);
+    txt(s, h1, { x: x + 0.25, y: 4.0, w: 2.25, h: 0.35, fontSize: 15, bold: true, color: INK });
+    txt(s, b1, { x: x + 0.25, y: 4.38, w: 2.25, h: 0.8, fontSize: 12 });
+  });
+  card(s, 0.6, 5.4, 8.25, 1.2, "EEF4FC");
+  circleIcon(s, I.robot, 0.85, 5.62, BLUE, 0.55);
+  txt(s, "Two engines, same tools", { x: 1.6, y: 5.55, w: 7, h: 0.35, fontSize: 15, bold: true, color: INK });
+  txt(s, "Built-in agent: runs offline, no key. Claude agent: claude-opus-5-5 drives the tool loop and can search live news. The ML model is not changed.", { x: 1.6, y: 5.92, w: 7.1, h: 0.6, fontSize: 12.5 });
+  card(s, 9.1, 3.15, 3.6, 3.45, DARK);
+  txt(s, "Decision rules", { x: 9.4, y: 3.35, w: 3.1, h: 0.4, fontSize: 17, bold: true, color: "FFFFFF" });
+  txt(s, [
+    { text: "Road blocked (confirmed) → High, ~97%", options: { bullet: true, breakLine: true } },
+    { text: "Lane closed → risk up by lost capacity", options: { bullet: true, breakLine: true } },
+    { text: "Unverified rumour → keep forecast, ask a human", options: { bullet: true, breakLine: true } },
+    { text: "Off the route or already over → ignore", options: { bullet: true } },
+  ], { x: 9.4, y: 3.85, w: 3.1, h: 2.6, fontSize: 13.5, color: "E5E7EB", paraSpaceAfter: 8 });
+  s.addNotes("ML learns from history, so it cannot see one-off events like a crash or a closed road. The agent starts from the ML forecast and runs a loop: observe, plan, act by calling tools (government incident feed, roadworks permits, news), reason about route and timing, reflect by cross-checking sources, then decide. If the road is blocked, it overrides the forecast to High. It never alerts on a rumour alone. The ML model itself is unchanged.");
+
+  // ---------- Agentic AI: demo ----------
+  s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "4 Prototype demo" });
+  title(s, "Demo: a blocked road turns Moderate into a High alert");
+  const agA = await aspect(path.join(BUILD, "agent_top.png"));
+  const agW = 7.5, agH = agW / agA;
+  s.addImage({ path: path.join(BUILD, "agent_top.png"), x: 0.6, y: 1.4, w: agW, h: agH, altText: "Agentic AI tab: ML says Moderate 13%, the agent finds a confirmed crash and raises it to High 97% with diversion actions", objectName: "agent-shot" });
+  txt(s, [
+    { text: "The ML model alone said Moderate, 13%. It cannot see the crash.", options: { bullet: true, breakLine: true } },
+    { text: "The agent found an official crash report, confirmed by TV news, so it raised the forecast to High, 97%: divert to Gate 3.", options: { bullet: true, breakLine: true } },
+    { text: "Every step is shown as a trace, so the decision can be checked.", options: { bullet: true } },
+  ], { x: 0.6, y: 1.4 + agH + 0.3, w: agW, h: 1.7, fontSize: 14, paraSpaceAfter: 6 });
+  const okc = (t) => ({ text: t, options: { color: "006300", bold: true } });
+  const upc = (t) => ({ text: t, options: { color: "A32020", bold: true } });
+  const wac = (t) => ({ text: t, options: { color: "8A5A00", bold: true } });
+  s.addTable([
+    [hdr("Scenario"), hdr("ML"), hdr("Agent decides")],
+    ["Calm morning", "Mod 13%", okc("Keeps it")],
+    ["Accident blocks road", "Mod 13%", upc("High 97%: divert")],
+    ["Roadworks, 1 lane", "Mod 19%", upc("High 80%: leave early")],
+    ["Unverified rumour", "Mod 25%", wac("Keeps it, human check")],
+    ["Crash already cleared", "Mod 3%", okc("Keeps it (over by 07:30)")],
+  ], { x: 8.4, y: 1.4, w: 4.3, colW: [1.6, 0.9, 1.8], fontSize: 12, color: INK, border: { type: "solid", pt: 0.75, color: LINE }, rowH: 0.55 });
+  txt(s, "Scenario feeds are simulated examples in a government / news feed format; the ML forecasts under them are real held-out days.", { x: 8.4, y: 5.0, w: 4.3, h: 0.9, fontSize: 11, italic: true, color: MUTED });
+  s.addNotes("Live demo: open the Agentic AI tab, pick Accident blocks the road, press Run agent and let the steps appear. Then show the rumour scenario: the agent refuses to raise an alarm on an unverified post and asks a human to check. That is responsible AI in action.");
+
   // ---------- 9. Results ----------
   pres.addSection({ title: "5 Testing & results" });
   s = pres.addSlide({ masterName: "CONTENT", sectionTitle: "5 Testing & results" });
@@ -335,6 +396,7 @@ async function aspect(file) { const m = await sharp(file).metadata(); return m.w
     { text: "Real-data model, beats all baselines on a held-out year", options: { bullet: true, breakLine: true } },
     { text: "1-hour-ahead forecast, alert at P(High) ≥ 50%, explanations", options: { bullet: true, breakLine: true } },
     { text: "Web dashboard: replay, what-if, manual entry, CSV upload, performance, responsible AI", options: { bullet: true, breakLine: true } },
+    { text: "Agentic AI layer: tool loop that overrides the alert for crashes and closures", options: { bullet: true, breakLine: true } },
     { text: "Model runs in the browser; deployed from GitHub to Vercel", options: { bullet: true, breakLine: true } },
     { text: "Metrics, confusion matrix, test cases with failures, parity tests", options: { bullet: true } },
   ], { x: 0.95, y: 2.3, w: 5.3, h: 4.1, fontSize: 15, paraSpaceAfter: 8, color: INK });
@@ -343,6 +405,7 @@ async function aspect(file) { const m = await sharp(file).metadata(); return m.w
     { text: "Count vehicles at our own gate for a few weeks and retrain (same code)", options: { bullet: true, breakLine: true } },
     { text: "Speed or queue labels from a camera or GPS", options: { bullet: true, breakLine: true } },
     { text: "Live traffic counter and weather-forecast APIs", options: { bullet: true, breakLine: true } },
+    { text: "Real government incident and roadworks APIs for the agent", options: { bullet: true, breakLine: true } },
     { text: "SMS or app notifications run by the transport office", options: { bullet: true, breakLine: true } },
     { text: "15-minute data and the campus event calendar", options: { bullet: true } },
   ], { x: 7.1, y: 2.3, w: 5.3, h: 4.1, fontSize: 15, paraSpaceAfter: 8, color: INK });

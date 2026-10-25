@@ -580,6 +580,10 @@ const STAGE_LABEL = { observe: "Observe", plan: "Plan", act: "Act (tools)", reas
 
 async function buildAgent() {
   if (!SCENARIOS) SCENARIOS = (await (await fetch("agent/scenarios.json")).json()).scenarios;
+  // ?agentrun=<scenario id> runs that scenario on load (used for demos and screenshots)
+  const auto = new URLSearchParams(location.search).get("agentrun");
+  const autoRun = auto && !agentState.autoDone && SCENARIOS.some((x) => x.id === auto);
+  if (autoRun) { agentState.autoDone = true; agentState.scenario = auto; }
   const sc = SCENARIOS.find((x) => x.id === agentState.scenario) || SCENARIOS[0];
   $("#view-agent").innerHTML = `
     <div class="layout">
@@ -617,6 +621,7 @@ async function buildAgent() {
   root.querySelector("#a-live").addEventListener("change", (e) => { agentState.live = e.target.checked; });
   root.querySelector("#a-loc").addEventListener("input", (e) => { agentState.location = e.target.value; });
   root.querySelector("#a-run").addEventListener("click", () => runAgent(sc, base));
+  if (autoRun) runAgent(sc, base);
 }
 
 function agentBase(sc) {

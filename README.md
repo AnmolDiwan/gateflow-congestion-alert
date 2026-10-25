@@ -17,7 +17,7 @@ A Streamlit version (`app.py`) is kept for local use.
 | Checklist item | Where to find it |
 |---|---|
 | Report file | [`docs/GateFlow_Report.pdf`](docs/GateFlow_Report.pdf) · [`.docx`](docs/GateFlow_Report.docx) · [`REPORT.md`](docs/REPORT.md) |
-| PPT | [`docs/GateFlow_Presentation.pptx`](docs/GateFlow_Presentation.pptx) (15 slides with speaker notes, following the suggested flow) · [`PDF`](docs/GateFlow_Presentation.pdf) |
+| PPT | [`docs/GateFlow_Presentation.pptx`](docs/GateFlow_Presentation.pptx) (17 slides with speaker notes, incl. the Agentic AI layer, following the suggested flow) · [`PDF`](docs/GateFlow_Presentation.pdf) |
 | Demo | The web dashboard in `public/` (deployed on Vercel) · 2-minute demo script in [`docs/EXPLAINER.md`](docs/EXPLAINER.md#13-two-minute-demo-script) |
 | Problem definition and intended users | Report §2 · website tab *About & Responsible AI* |
 | Architecture / workflow diagram | [`docs/architecture.png`](docs/architecture.png) (data input → processing/model → output) |

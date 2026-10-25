@@ -56,7 +56,9 @@ function assess(base, events, windowStartMin) {
       continue;
     }
     if (ev.full_closure) {
-      if (ev.credibility === "official" || officialRoutes.some((o) => o.full_closure)) {
+      if ((ev.credibility === "official" || officialRoutes.some((o) => o.full_closure)) && closure) {
+        notes.push({ ev, effect: "info", text: `${tag}: independently confirms the closure (${ev.publisher}).` });
+      } else if (ev.credibility === "official" || officialRoutes.some((o) => o.full_closure)) {
         const before = p; p = Math.max(p, 0.97); officialOverride = true; closure = true;
         notes.push({ ev, effect: "raise", text: `${tag}: road fully blocked on the route during the arrival window. The ML model cannot see this, so P(High) goes from ${(before * 100).toFixed(0)}% to ${(p * 100).toFixed(0)}%.` });
       } else {
